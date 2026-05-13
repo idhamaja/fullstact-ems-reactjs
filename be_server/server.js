@@ -17,7 +17,6 @@ import { serve } from "inngest/express";
 import { inngest, functions } from "./inngest/index.js";
 
 const app = express();
-const PORT = process.env.PORT || 5000; // ← TAMBAHKAN INI
 
 // Connect DB
 connectDB();
@@ -45,13 +44,16 @@ app.use(
   serve({
     client: inngest,
     functions,
-  }),
+  })
 );
 
-// app.listen HARUS setelah semua middleware & routes
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} Boss Let's Go!!!`);
-});
+// Hanya listen kalau bukan di Vercel (development lokal)
+if (process.env.NODE_ENV !== "production") {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT} Boss Let's Go!!!`);
+  });
+}
 
-// Export app untuk Vercel
+// WAJIB: export default untuk Vercel
 export default app;
