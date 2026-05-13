@@ -2,12 +2,17 @@ import mongoose from "mongoose";
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    const uri = process.env.MONGODB_URI;
 
-    console.log("MongoDB Connected");
+    // Validasi agar error lebih jelas
+    if (!uri) {
+      throw new Error("MONGODB_URI is not defined. Check your .env file.");
+    }
+
+    await mongoose.connect(uri);
+    console.log("MongoDB Connected Boss Let's Go!!!");
   } catch (error) {
-    console.log(error);
-
+    console.error("DB Connection Error:", error.message);
     process.exit(1);
   }
 };
