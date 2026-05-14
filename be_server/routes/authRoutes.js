@@ -3,14 +3,14 @@ import {
   changePassword,
   getSession,
   login,
-} from "../controller/AuthController.js";
+} from "../controller/authController.js"
 import { protect } from "../middleware/auth.js";
 
 
-const authhRouter = Router();
+const authRouter = Router();
 
-authhRouter.post("/login", login);
-authhRouter.get("/session", protect, getSession);
-authhRouter.post("/change-password", protect, changePassword);
+authRouter.post("/login", login);
+authRouter.get("/session", protect, getSession);
+authRouter.post("/change-password", protect, changePassword);
 
-export default authhRouter;
+export default authRouter;
