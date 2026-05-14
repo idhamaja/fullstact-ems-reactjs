@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 import multer from "multer";
-
 import connectDB from "./config/db.js";
 
 import authRouter from "./routes/authRoutes.js";
@@ -23,7 +22,7 @@ app.use(cors());
 app.use(express.json());
 app.use(multer().none());
 
-// DB Middleware — connect per request (serverless safe)
+// DB Middleware
 app.use(async (req, res, next) => {
   try {
     await connectDB();
@@ -52,13 +51,13 @@ app.use("/api/leave", leaveRouter);
 app.use("/api/payslips", payslipRouter);
 app.use("/api/dashboard", dashboardRouter);
 
-// Inngest
+// Inngest — path sesuai nama folder "inngest"
 app.use(
   "/api/inngest",
   serve({
     client: inngest,
     functions,
-  }),
+  })
 );
 
 // Local dev only
