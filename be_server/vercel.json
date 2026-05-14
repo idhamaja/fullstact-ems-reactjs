@@ -5,9 +5,8 @@
       "src": "server.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": [
-          "**"
-        ]
+        "includeFiles": ["**/*"],
+        "maxDuration": 30
       }
     }
   ],

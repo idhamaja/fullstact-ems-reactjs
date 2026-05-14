@@ -18,29 +18,32 @@ import { inngest, functions } from "./inngest/index.js";
 
 const app = express();
 
-// Middleware
+// Core Middleware
 app.use(cors());
 app.use(express.json());
 app.use(multer().none());
 
-// Middleware: connect DB sebelum setiap request (penting untuk serverless cold start)
+// DB Middleware — connect per request (serverless safe)
 app.use(async (req, res, next) => {
   try {
     await connectDB();
     next();
   } catch (error) {
-    console.error("DB middleware error:", error.message);
-    res
-      .status(500)
-      .json({ error: "Database connection failed", detail: error.message });
+    console.error("DB Error:", error.message);
+    return res.status(500).json({
+      success: false,
+      error: "Database connection failed",
+      detail: error.message,
+    });
   }
 });
 
-// Routes
+// Health check
 app.get("/", (req, res) => {
-  res.status(200).send("Server is running Boss!!");
+  res.status(200).json({ status: "ok", message: "Server is running!" });
 });
 
+// Routes
 app.use("/api/auth", authRouter);
 app.use("/api/employee", employeeRouter);
 app.use("/api/profile", profileRouter);
@@ -49,6 +52,7 @@ app.use("/api/leave", leaveRouter);
 app.use("/api/payslips", payslipRouter);
 app.use("/api/dashboard", dashboardRouter);
 
+// Inngest
 app.use(
   "/api/inngest",
   serve({
@@ -57,11 +61,11 @@ app.use(
   }),
 );
 
-// Hanya listen kalau bukan di Vercel (development lokal)
+// Local dev only
 if (process.env.NODE_ENV !== "production") {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT} Boss Let's Go!!!`);
+    console.log(`Server running on port ${PORT}`);
   });
 }
 
