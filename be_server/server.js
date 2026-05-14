@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 import multer from "multer";
+
 import connectDB from "./config/db.js";
 
 import authRouter from "./routes/authRoutes.js";
@@ -17,32 +18,19 @@ import { inngest, functions } from "./inngest/index.js";
 
 const app = express();
 
-// Core Middleware
+// Connect DB
+connectDB();
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(multer().none());
 
-// DB Middleware
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (error) {
-    console.error("DB Error:", error.message);
-    return res.status(500).json({
-      success: false,
-      error: "Database connection failed",
-      detail: error.message,
-    });
-  }
-});
-
-// Health check
-app.get("/", (req, res) => {
-  res.status(200).json({ status: "ok", message: "Server is running!" });
-});
-
 // Routes
+app.get("/", (req, res) => {
+  res.status(200).send("Server is running Boss!!");
+});
+
 app.use("/api/auth", authRouter);
 app.use("/api/employee", employeeRouter);
 app.use("/api/profile", profileRouter);
@@ -51,7 +39,6 @@ app.use("/api/leave", leaveRouter);
 app.use("/api/payslips", payslipRouter);
 app.use("/api/dashboard", dashboardRouter);
 
-// Inngest — path sesuai nama folder "inngest"
 app.use(
   "/api/inngest",
   serve({
@@ -60,12 +47,13 @@ app.use(
   })
 );
 
-// Local dev only
+// Hanya listen kalau bukan di Vercel (development lokal)
 if (process.env.NODE_ENV !== "production") {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT} Boss Let's Go!!!`);
   });
 }
 
+// WAJIB: export default untuk Vercel
 export default app;
