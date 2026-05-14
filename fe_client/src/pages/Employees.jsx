@@ -3,6 +3,7 @@ import { dummyEmployeeData, DEPARTMENTS } from "../assets/assets";
 import { Plus, Search, X } from "lucide-react";
 import EmployeeCards from "../components/EmployeeCards";
 import EmployeeForm from "../components/EmployeeForm";
+import api from "../api/axios.js";
 
 function Employees() {
   const [employees, setEmployees] = useState([]);

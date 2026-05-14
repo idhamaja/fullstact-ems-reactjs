@@ -38,7 +38,7 @@ export const createEmployee = async (req, res) => {
       position,
       department,
       basicSalary,
-      allowances, // ✅ fix: allowance → allowances
+      allowances,
       deductions,
       joinDate,
       password,

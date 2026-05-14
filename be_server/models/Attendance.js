@@ -22,13 +22,13 @@ const attendanceSchema = new mongoose.Schema(
       default: null,
     },
   },
-
   { timestamps: true },
 );
 
 attendanceSchema.index({ employeeId: 1, date: 1 }, { unique: true });
 
-const Attentande =
-  mongoose.models.Attentande || mongoose.model("Attendance", attendanceSchema);
+// ✅ fix: nama variable konsisten
+const Attendance =
+  mongoose.models.Attendance || mongoose.model("Attendance", attendanceSchema);
 
-export default Attentande;
+export default Attendance;

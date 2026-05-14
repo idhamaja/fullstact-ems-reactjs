@@ -1,17 +1,15 @@
-//GET Dashboard for employee and Admin
-
 import Employee from "../models/Employee.js";
-import Attentande from "../models/Attendance.js";
+import Attendance from "../models/Attendance.js";
 import LeaveApplication from "../models/LeaveApplication.js";
 import Payslip from "../models/Payslip.js";
 import { DEPARTMENTS } from "../constant/departments.js";
 
-//GET api/dashboard
 export const getDashboardEMS = async (req, res) => {
   try {
-    const session = req.session;
-    if (session.role === "ADMIN") {
-      const [totalEmployees, totalAttendance, pendingLeaves] =
+    const { role, userId } = req.session; // ✅ tetap req.session sesuai middleware
+
+    if (role === "ADMIN") {
+      const [totalEmployees, todayAttendance, pendingLeaves] =
         await Promise.all([
           Employee.countDocuments({ isDeleted: { $ne: true } }),
           Attendance.countDocuments({
@@ -22,29 +20,33 @@ export const getDashboardEMS = async (req, res) => {
           }),
           LeaveApplication.countDocuments({ status: "PENDING" }),
         ]);
+
       return res.json({
         role: "ADMIN",
         totalEmployees,
         totalDepartments: DEPARTMENTS.length,
-        totalAttendance,
+        todayAttendance, // ✅ fix: nama field sesuai frontend
         pendingLeaves,
       });
     } else {
-      const employee = await Employee.findOne({
-        userId: session.userId,
-      }).lean();
+      const employee = await Employee.findOne({ userId }).lean();
       if (!employee)
         return res.status(404).json({ error: "Employee is not Found!!" });
+
       const today = new Date();
+
       const [currentMonthAttendance, pendingLeaves, latestPayslip] =
         await Promise.all([
-          Attentande.countDocuments({
+          Attendance.countDocuments({
+            // ✅ fix: Attentande → Attendance
             employeeId: employee._id,
             date: {
               $gte: new Date(today.getFullYear(), today.getMonth(), 1),
               $lt: new Date(today.getFullYear(), today.getMonth() + 1, 1),
             },
-          }).LeaveApplication.countDocuments({
+          }),
+          LeaveApplication.countDocuments({
+            // ✅ fix: pisah dari countDocuments sebelumnya
             employeeId: employee._id,
             status: "PENDING",
           }),
@@ -52,6 +54,7 @@ export const getDashboardEMS = async (req, res) => {
             .sort({ createdAt: -1 })
             .lean(),
         ]);
+
       return res.json({
         role: "EMPLOYEE",
         employee: { ...employee, id: employee._id.toString() },
