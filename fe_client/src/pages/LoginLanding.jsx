@@ -1,14 +1,14 @@
 import { ArrowRightIcon, ShieldIcon, UserIcon } from "lucide-react";
 import LoginLeftSide from "../components/LoginLeftSide";
 import { Link, Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext.jsx"; // ✅ tambahkan import ini
-import Loading from "../components/Loading"; // ✅ pastikan ini juga di-import
+import { useAuth } from "../context/AuthContext.jsx";
+import Loading from "../components/Loading";
 
 const LoginLanding = () => {
   const { user, loading } = useAuth();
 
   if (loading) return <Loading />;
-  if (user) return <Navigate to="/dashboard" />;
+  if (user) return <Navigate to="/dashboard" replace />;
 
   const portalOptions = [
     {
@@ -26,13 +26,12 @@ const LoginLanding = () => {
       icon: UserIcon,
     },
   ];
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       <LoginLeftSide />
-
       <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 lg:p-16 relative overflow-y-auto min-h-screen">
         <div className="w-full max-w-md animate-fade-in relative z-10">
-          {/*HEADER */}
           <div>
             <h2 className="text-3xl font-medium text-slate-900 tracking-tight mb-3">
               Welcome Back!
@@ -41,9 +40,7 @@ const LoginLanding = () => {
               Select your portal to securly access the system.
             </p>
           </div>
-
-          {/* Portal List */}
-          <div className="space-y-4 mt-12 ">
+          <div className="space-y-4 mt-12">
             {portalOptions.map((portal) => (
               <Link
                 key={portal.to}
@@ -59,8 +56,6 @@ const LoginLanding = () => {
               </Link>
             ))}
           </div>
-
-          {/* Footer */}
           <div className="mt-12 text-center md:text-left text-sm text-slate-400">
             <p>© {new Date().getFullYear()} GreatStack. All Rights Reserved.</p>
           </div>

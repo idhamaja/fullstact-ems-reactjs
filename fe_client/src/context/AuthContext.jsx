@@ -11,7 +11,7 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => localStorage.getItem("token")); // ⬅️ lazy init
+  const [token, setToken] = useState(() => localStorage.getItem("token"));
   const [loading, setLoading] = useState(true);
 
   const clearSession = useCallback(() => {
@@ -29,7 +29,6 @@ export function AuthProvider({ children }) {
     }
     try {
       const { data } = await api.get("/auth/session");
-      // ⬅️ validasi response sebelum set user
       if (data?.user) {
         setUser(data.user);
         setToken(storedToken);
@@ -37,7 +36,6 @@ export function AuthProvider({ children }) {
         clearSession();
       }
     } catch (error) {
-      // ⬅️ hanya clear jika 401, bukan network error biasa
       if (error.response?.status === 401 || error.response?.status === 403) {
         clearSession();
       }
@@ -55,10 +53,9 @@ export function AuthProvider({ children }) {
       const { data } = await api.post("/auth/login", {
         email,
         password,
-        role_type,
+        role_type, // ⬅️ kirim apa adanya (lowercase), sesuai ekspektasi backend
       });
 
-      // ⬅️ validasi response dari server
       if (!data?.token || !data?.user) {
         throw new Error("Response login tidak valid dari server");
       }
@@ -68,7 +65,6 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       return data.user;
     } catch (error) {
-      // ⬅️ lempar pesan yang jelas ke LoginForm
       const message =
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -80,8 +76,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      // ⬅️ opsional: beritahu server untuk invalidate token
-      await api.post("/auth/logout").catch(() => {}); // silent fail
+      await api.post("/auth/logout").catch(() => {});
     } finally {
       clearSession();
     }

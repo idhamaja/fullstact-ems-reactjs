@@ -1,10 +1,8 @@
-//Create Leave
-
 import { inngest } from "../inngest/index.js";
 import Employee from "../models/Employee.js";
 import LeaveApplication from "../models/LeaveApplication.js";
 
-//POST /api/leaves
+// POST /api/leaves
 export const createLeave = async (req, res) => {
   try {
     const session = req.session;
@@ -21,6 +19,7 @@ export const createLeave = async (req, res) => {
     if (!type || !startDate || !endDate || !reason) {
       return res.status(400).json({ error: "Missing Fields" });
     }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (new Date(startDate) <= today || new Date(endDate) <= today) {
@@ -29,10 +28,11 @@ export const createLeave = async (req, res) => {
         .json({ error: "Leave dates must be in the future" });
     }
 
-    if (new Date(endDate) < new Date(endDate)) {
+    // ✅ Fix: bandingkan endDate dengan startDate (bukan endDate dengan endDate)
+    if (new Date(endDate) < new Date(startDate)) {
       return res
         .status(400)
-        .json({ error: "End date must cannot be before start date" });
+        .json({ error: "End date cannot be before start date" });
     }
 
     const leave = await LeaveApplication.create({
@@ -46,7 +46,7 @@ export const createLeave = async (req, res) => {
 
     await inngest.send({
       name: "leave/pending",
-      data: { leaveApplicatioId: leave._id },
+      data: { leaveApplicationId: leave._id },
     });
 
     return res.json({ success: true, data: leave });
@@ -55,8 +55,7 @@ export const createLeave = async (req, res) => {
   }
 };
 
-//Get Leave
-//GET /api/leaves
+// GET /api/leaves
 export const getLeave = async (req, res) => {
   try {
     const session = req.session;
@@ -84,9 +83,11 @@ export const getLeave = async (req, res) => {
         userId: session.userId,
       }).lean();
 
-      if (!employee) res.status(404).json({ error: "Not Found!!" });
+      // ✅ Fix: tambah return agar tidak lanjut eksekusi
+      if (!employee) return res.status(404).json({ error: "Not Found!!" });
 
-      const leave = await LeaveApplication.find({
+      // ✅ Fix: ganti 'leave' → 'leaves' agar konsisten
+      const leaves = await LeaveApplication.find({
         employeeId: employee._id,
       }).sort({ createdAt: -1 });
 
@@ -103,8 +104,7 @@ export const getLeave = async (req, res) => {
   }
 };
 
-//Update Leave Status
-//PATCH /api/leaves
+// PATCH /api/leaves/:id
 export const updateLeaveStatus = async (req, res) => {
   try {
     const { status } = req.body;
@@ -112,13 +112,15 @@ export const updateLeaveStatus = async (req, res) => {
       return res.status(400).json({ error: "Invalid Status" });
     }
 
-    const leae = await LeaveApplication.findIdAndUpdate(
+    // ✅ Fix: typo 'leae' → 'leave', 'findIdAndUpdate' → 'findByIdAndUpdate', opsi Mongoose benar
+    const leave = await LeaveApplication.findByIdAndUpdate(
       req.params.id,
-      {
-        status,
-      },
-      { returnDocument: "after" },
+      { status },
+      { new: true },
     );
+
+    if (!leave) return res.status(404).json({ error: "Leave not found" });
+
     return res.json({ success: true, data: leave });
   } catch (error) {
     return res.status(500).json({ error: "Failed" });

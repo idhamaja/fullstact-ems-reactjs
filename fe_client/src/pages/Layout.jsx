@@ -1,13 +1,15 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { useAuth } from "../context/AuthContext.jsx";
 import Loading from "../components/Loading.jsx";
 
 const Layout = () => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) return <Loading />;
-  if (!user) return <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
+
   return (
     <div className="flex h-screen bg-linear-to-br from-slate-50 via-white to-indigo-50/30">
       <Sidebar />

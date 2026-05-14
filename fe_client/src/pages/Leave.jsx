@@ -9,19 +9,28 @@ import {
 } from "lucide-react";
 import LeavesHistory from "../components/LeavesComponents/LeavesHistory";
 import ApplyLeavesModal from "../components/LeavesComponents/ApplyLeavesModal";
+import { useAuth } from "../context/AuthContext";
+import api from "../api/axios";
+import toast from "react-hot-toast";
 
 const Leave = () => {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
-  const isAdmin = false;
+  const { user } = useAuth(); // ⬅️ ambil user dari useAuth
+  const isAdmin = user?.role === "ADMIN";
 
-  const fetchLeaves = useCallback(() => {
-    setLeaves(dummyLeaveData);
-    setTimeout(() => {
+  const fetchLeaves = useCallback(async () => {
+    try {
+      const res = await api.get("/leave");
+      setLeaves(res.data.data || []);
+      if (res.data.employee?.isDeleted) setIsDeleted(true);
+    } catch (error) {
+      toast.error(error?.response?.data?.error || error.message);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   }, []);
 
   useEffect(() => {
@@ -99,7 +108,11 @@ const Leave = () => {
       )}
       <LeavesHistory leaves={leaves} isAdmin={isAdmin} onUpdate={fetchLeaves} />
 
-      <ApplyLeavesModal open={showModal} onClose={() => setShowModal(false)} onSuccess={fetchLeaves} />
+      <ApplyLeavesModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        onSuccess={fetchLeaves}
+      />
     </div>
   );
 };

@@ -69,7 +69,7 @@ function Employees() {
           value={selectedDept}
           onChange={(e) => setSelectedDept(e.target.value)}
         >
-          <option>All Departments</option>
+          <option value="">All Departments</option>
           {DEPARTMENTS.map((deptName) => (
             <option key={deptName} value={deptName}>
               {deptName}
