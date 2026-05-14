@@ -1,21 +1,16 @@
-//GET Employees
-
-import Employee from "../models/Employee.js";  // ✅
-import User from "../models/User.js";           // ✅
+import Employee from "../models/Employee.js";
+import User from "../models/User.js";
 import bcrypt from "bcrypt";
 
-
-//GET api/employees
+// GET api/employees
 export const getEmployees = async (req, res) => {
   try {
     const { department } = req.query;
     const where = {};
     if (department) where.department = department;
 
-    const employees = (await Employee.find(where))
-      .toSorted({
-        createdAt: -1,
-      })
+    const employees = await Employee.find(where)
+      .sort({ createdAt: -1 }) // ✅ fix: .toSorted() → .sort()
       .populate("userId", "email role")
       .lean();
 
@@ -32,8 +27,7 @@ export const getEmployees = async (req, res) => {
   }
 };
 
-//Create Employee
-//POST api/employees
+// POST api/employees
 export const createEmployee = async (req, res) => {
   try {
     const {
@@ -44,7 +38,7 @@ export const createEmployee = async (req, res) => {
       position,
       department,
       basicSalary,
-      allowance,
+      allowances, // ✅ fix: allowance → allowances
       deductions,
       joinDate,
       password,
@@ -59,7 +53,8 @@ export const createEmployee = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await user.create({
+    const user = await User.create({
+      // ✅ fix: user.create → User.create
       email,
       password: hashedPassword,
       role: role || "EMPLOYEE",
@@ -67,14 +62,14 @@ export const createEmployee = async (req, res) => {
 
     const employee = await Employee.create({
       userId: user._id,
-      firsName,
+      firstName, // ✅ fix: firsName → firstName
       lastName,
       email,
       phone,
       position,
       department: department || "Engineering",
       basicSalary: Number(basicSalary) || 0,
-      allowances: Number(allowance) || 0,
+      allowances: Number(allowances) || 0, // ✅ fix: allowance → allowances
       deductions: Number(deductions) || 0,
       joinDate: joinDate ? new Date(joinDate) : new Date(),
       bio: bio || "",
@@ -89,8 +84,7 @@ export const createEmployee = async (req, res) => {
   }
 };
 
-//Update Employee
-//PUT api/employees/:id
+// PUT api/employees/:id
 export const updateEmployee = async (req, res) => {
   try {
     const { id } = req.params;
@@ -102,37 +96,35 @@ export const updateEmployee = async (req, res) => {
       position,
       department,
       basicSalary,
-      allowance,
+      allowances, // ✅ fix: allowance → allowances
       deductions,
+      employmentStatus,
       password,
       role,
       bio,
     } = req.body;
 
     const employee = await Employee.findById(id);
-
     if (!employee)
       return res.status(404).json({ error: "Employee is not found" });
 
     await Employee.findByIdAndUpdate(id, {
-      firsName,
+      firstName, // ✅ fix: firsName → firstName
       lastName,
       email,
       phone,
       position,
       department: department || "Engineering",
       basicSalary: Number(basicSalary) || 0,
-      allowances: Number(allowance) || 0,
+      allowances: Number(allowances) || 0, // ✅ fix
       deductions: Number(deductions) || 0,
-      employeeStatus: employmentStatus || "ACTIVE",
+      employmentStatus: employmentStatus || "ACTIVE", // ✅ fix: employeeStatus → employmentStatus
       bio: bio || "",
     });
 
-    //update user record
     const userUpdate = { email };
     if (role) userUpdate.role = role;
     if (password) userUpdate.password = await bcrypt.hash(password, 10);
-
     await User.findByIdAndUpdate(employee.userId, userUpdate);
 
     return res.json({
@@ -143,18 +135,15 @@ export const updateEmployee = async (req, res) => {
     if (error.code === 11000) {
       return res.status(400).json({ error: "Email already exists." });
     }
-
-    return res.status(500).json({ error: "Failed to create employee" });
+    return res.status(500).json({ error: "Failed to update employee" });
   }
 };
 
-//Delete Employee
-//DELETE api/employees/:id
+// DELETE api/employees/:id
 export const deleteEmployee = async (req, res) => {
   try {
     const { id } = req.params;
     const employee = await Employee.findById(id);
-
     if (!employee)
       return res.status(404).json({ error: "Employee is not found" });
 

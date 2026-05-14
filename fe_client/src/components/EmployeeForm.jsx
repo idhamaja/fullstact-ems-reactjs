@@ -2,13 +2,34 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DEPARTMENTS } from "../assets/assets";
 import { Loader2Icon } from "lucide-react";
+import api from "../api/axios.js";
+import toast from "react-hot-toast";
 
 const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const isEditMode = !!initialData;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    const formDataEmployees = new FormData(e.currentTarget);
+    if (isEditMode) {
+      const passwordFormData = formDataEmployees.get("password");
+      if (!passwordFormData) formDataEmployees.delete("password");
+    }
+    try {
+      const urlFormData = isEditMode
+        ? `/employees/${initialData.id}`
+        : "/employees";
+      const methodFormData = isEditMode ? "put" : "post";
+      await api[methodFormData](urlFormData, formDataEmployees);
+      onSuccess ? onSuccess() : navigate("/employees");
+    } catch (error) {
+      toast.error(error.response?.data?.error || error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -16,7 +37,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
       onSubmit={handleSubmit}
       className="space-y-6 max-w-3xl animate-fade-in"
     >
-      {/*Personal Information */}
+      {/* Personal Information */}
       <div className="card p-5 sm:p-6">
         <h3 className="font-medium mb-6 pb-4 border-b border-slate-100">
           Personal Information
@@ -30,8 +51,6 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               defaultValue={initialData?.firstName}
             />
           </div>
-
-          {/* */}
           <div>
             <label className="block mb-2">Last Name</label>
             <input
@@ -40,14 +59,10 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               defaultValue={initialData?.lastName}
             />
           </div>
-
-          {/* */}
           <div>
             <label className="block mb-2">Phone Number</label>
             <input name="phone" required defaultValue={initialData?.phone} />
           </div>
-
-          {/* */}
           <div>
             <label className="block mb-2">Join Date</label>
             <input
@@ -62,13 +77,11 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
             />
           </div>
         </div>
-
-        {/* */}
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-2 mt-5">
           <label className="block mb-2">Bio (Optional)</label>
           <textarea
             name="bio"
-            defaultValue={initialData?.phone}
+            defaultValue={initialData?.bio}
             rows={3}
             className="resize-none"
             placeholder="Brief description..."
@@ -76,14 +89,15 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
         </div>
       </div>
 
-      {/*Employment Details */}
+      {/* Employment Details */}
       <div className="card p-5 sm:p-6">
         <h3 className="text-base font-medium text-slate-900 mb-6 pb-4 border-b border-slate-100">
           Employment Details
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm text-slate-700">
           <div>
-            <label className="block mb-2"></label>
+            <label className="block mb-2">Department</label>{" "}
+            {/* ✅ fix: label kosong */}
             <select
               name="department"
               defaultValue={initialData?.department || ""}
@@ -97,11 +111,14 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
             </select>
           </div>
           <div>
-            <label className="block mb-2">Phone Number</label>
-            <input name="phone" required defaultValue={initialData?.position} />
+            <label className="block mb-2">Position</label>{" "}
+            {/* ✅ fix: "Phone Number" → "Position" */}
+            <input
+              name="position"
+              required
+              defaultValue={initialData?.position}
+            />
           </div>
-
-          {/* */}
           <div>
             <label className="block mb-2">Basic Salary</label>
             <input
@@ -112,8 +129,6 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               defaultValue={initialData?.basicSalary || 0}
             />
           </div>
-
-          {/* */}
           <div>
             <label className="block mb-2">Allowances</label>
             <input
@@ -123,8 +138,6 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               defaultValue={initialData?.allowances || 0}
             />
           </div>
-
-          {/* */}
           <div>
             <label className="block mb-2">Deductions</label>
             <input
@@ -140,23 +153,24 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
             <div>
               <label className="block mb-2">Status</label>
               <select
-                name="employmentsStatus"
+                name="employmentStatus"
                 defaultValue={initialData?.employmentStatus}
               >
-                <option value="ACTIVE"></option>
-                <option value="INACTIVE"></option>
+                <option value="ACTIVE">Active</option>{" "}
+                {/* ✅ fix: option text kosong */}
+                <option value="INACTIVE">Inactive</option>
               </select>
             </div>
           )}
         </div>
       </div>
 
-      {/*Account Setup */}
+      {/* Account Setup */}
       <div className="card p-5 sm:p-6">
         <h3 className="text-base font-medium text-slate-900 mb-6 pb-4 border-b border-slate-100">
           Account Setup
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm text-shadow-slate-700">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm text-slate-700">
           <div className="sm:col-span-2">
             <label className="block mb-2">Work Email</label>
             <input
@@ -191,18 +205,18 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               defaultValue={initialData?.user?.role || "EMPLOYEE"}
             >
               <option value="EMPLOYEE">Employee</option>
-              <option value="ADMIN">Admin </option>
+              <option value="ADMIN">Admin</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/*Button */}
+      {/* Buttons */}
       <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => (oncancel ? oncancel() : navigate(-0))}
+          onClick={() => (onCancel ? onCancel() : navigate(-1))}
         >
           Cancel
         </button>
@@ -212,7 +226,8 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
           disabled={loading}
         >
           {loading && <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />}
-          {isEditMode ? "Update Employe" : "Create Employee"}
+          {isEditMode ? "Update Employee" : "Create Employee"}{" "}
+          {/* ✅ fix: "Employe" → "Employee" */}
         </button>
       </div>
     </form>
