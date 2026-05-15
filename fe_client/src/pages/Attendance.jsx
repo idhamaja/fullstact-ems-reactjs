@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { dummyAttendanceData } from "../assets/assets";
 import Loading from "../components/Loading";
 import CheckinButton from "../components/AttendanceComponents/CheckinButton";
 import AttendanceStats from "../components/AttendanceComponents/AttendanceStats";
 import AttendanceHistory from "../components/AttendanceComponents/AttendanceHistory";
+import api from "../api/axios.js";
+import toast from "react-hot-toast";
 
 const Attendance = () => {
   const [history, setHistory] = useState([]);
@@ -11,10 +12,16 @@ const Attendance = () => {
   const [isDeleted, setIsDeleted] = useState(false);
 
   const fetchData = useCallback(async () => {
-    setHistory(dummyAttendanceData);
-    setTimeout(() => {
+    try {
+      const res = await api.get("/attendance");
+      const json = res.data;
+      setHistory(json.data || []);
+      if (json.employee?.isDeleted) setIsDeleted(true);
+    } catch (error) {
+      toast.error(error?.response?.data?.error || error.message);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   }, []);
 
   useEffect(() => {
@@ -22,11 +29,16 @@ const Attendance = () => {
   }, [fetchData]);
 
   if (loading) return <Loading />;
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todaysRecord = history.find(
-    (r) => new Date(r.Date).toDateString() === today.toDateString(),
-  );
+
+  // ✅ Fix: field dari MongoDB adalah 'date' (lowercase), bukan 'Date'
+  const todaysRecord = history.find((r) => {
+    const recordDate = new Date(r.date); // lowercase 'date'
+    recordDate.setHours(0, 0, 0, 0);
+    return recordDate.getTime() === today.getTime(); // bandingkan timestamp, lebih aman
+  });
 
   return (
     <div className="animate-fade-in">
@@ -50,7 +62,6 @@ const Attendance = () => {
         </div>
       )}
 
-      {/* */}
       <AttendanceStats history={history} />
       <AttendanceHistory history={history} />
     </div>

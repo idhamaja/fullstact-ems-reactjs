@@ -1,11 +1,12 @@
-//Clock-In and Out for Employee
+// Clock-In and Out for Employee
 // POST /api/attendance
 
-import Attentande from "../models/Attendance.js";
+import Attendance from "../models/Attendance.js"; // ✅ Fix: nama import konsisten
 import Employee from "../models/Employee.js";
 import { inngest } from "../inngest/index.js";
 
-export const clockInandOut = async (params) => {
+export const clockInandOut = async (req, res) => {
+  // ✅ Fix: parameter (req, res) bukan (params)
   try {
     const session = req.session;
     const employee = await Employee.findOne({ userId: session.userId });
@@ -19,16 +20,18 @@ export const clockInandOut = async (params) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const existing = await Attentande.findOne({
+    const existing = await Attendance.findOne({
+      // ✅ Fix: Attentande → Attendance
       employeeId: employee._id,
-      date: today,
+      date: today, // ✅ Sudah benar: 'date' (lowercase) sesuai schema
     });
 
     const now = new Date();
 
     if (!existing) {
       const isLate = now.getHours() >= 9 && now.getMinutes() > 0;
-      const attendance = await Attentande.create({
+      const attendance = await Attendance.create({
+        // ✅ Fix: Attentande → Attendance
         employeeId: employee._id,
         date: today,
         checkIn: now,
@@ -51,9 +54,9 @@ export const clockInandOut = async (params) => {
 
       existing.checkOut = now;
 
-      //Compute working Hours and Day type
+      // Compute working Hours and Day type
       const workingHours = parseFloat(diffHours.toFixed(2));
-      let dayType = "Half Day";
+      let dayType;
       if (workingHours >= 8) dayType = "Full Day";
       else if (workingHours >= 6) dayType = "Three Quarter Day";
       else if (workingHours >= 4) dayType = "Half Day";
@@ -73,8 +76,8 @@ export const clockInandOut = async (params) => {
   }
 };
 
-//Get attendance for employee
-//GET /api/attendance
+// Get attendance for employee
+// GET /api/attendance
 export const getAttendance = async (req, res) => {
   try {
     const session = req.session;
@@ -82,7 +85,7 @@ export const getAttendance = async (req, res) => {
     if (!employee) return res.status(404).json({ error: "Employee not found" });
 
     const limit = parseInt(req.query.limit || 30);
-    const history = await Attentande.find({ employeeId: employee._id })
+    const history = await Attendance.find({ employeeId: employee._id }) // ✅ Fix: Attentande → Attendance
       .sort({ date: -1 })
       .limit(limit);
 
@@ -91,6 +94,7 @@ export const getAttendance = async (req, res) => {
       employee: { isDeleted: employee.isDeleted },
     });
   } catch (error) {
+    console.error("Get Attendance Error: ", error);
     return res.status(500).json({ error: "Failed to Fetch Attendance" });
   }
 };
