@@ -4,12 +4,18 @@ import {
   createLeave,
   getLeave,
   updateLeaveStatus,
+  upload,
 } from "../controller/leaveController.js";
 
 const leaveRouter = Router();
 
-leaveRouter.post("/", protect, createLeave);
+// PENTING: upload.single("evidence") WAJIB ada di sini.
+// Ini yang mem-parse multipart/form-data → req.body menjadi tersedia.
+// Tanpa ini, req.body = undefined meskipun frontend mengirim data.
+leaveRouter.post("/", protect, upload.single("evidence"), createLeave);
+
 leaveRouter.get("/", protect, getLeave);
+
 leaveRouter.patch("/:id", protect, protectAdmin, updateLeaveStatus);
 
 export default leaveRouter;

@@ -12,10 +12,11 @@ const leaveApplicationSchema = new mongoose.Schema(
       enum: ["SICK", "CASUAL", "ANNUAL"],
       required: true,
     },
-    // ✅ fix: pindah ke level atas, bukan di dalam type: {}
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     reason: { type: String, required: true },
+    // URL/path to the uploaded evidence file (optional)
+    evidenceUrl: { type: String, default: null },
     status: {
       type: String,
       enum: ["PENDING", "APPROVED", "REJECTED"],
