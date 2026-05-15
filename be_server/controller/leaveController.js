@@ -1,30 +1,12 @@
 import multer from "multer";
 import path from "path";
-import fs from "fs";
 import { inngest } from "../inngest/index.js";
 import Employee from "../models/Employee.js";
 import LeaveApplication from "../models/LeaveApplication.js";
 
 // ─── Multer Setup ─────────────────────────────────────────────────────────────
-// Pakai diskStorage agar file tersimpan dan bisa diakses via /uploads/evidence/...
-// server.js sudah punya: app.use("/uploads", express.static("uploads"))
-
-const UPLOAD_DIR = "uploads/evidence";
-
-// Buat folder jika belum ada (aman dijalankan berkali-kali)
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, UPLOAD_DIR);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `evidence-${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
-});
+// Pakai memoryStorage — file TIDAK disimpan ke disk, langsung ke buffer di RAM
+// lalu dikonversi ke Base64 dan disimpan di MongoDB
 
 const fileFilter = (req, file, cb) => {
   const allowedMimes = ["image/jpeg", "image/png", "application/pdf"];
@@ -39,7 +21,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 export const upload = multer({
-  storage,
+  storage: multer.memoryStorage(), // buffer di RAM, tidak ke disk
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
 });
@@ -86,11 +68,13 @@ export const createLeave = async (req, res) => {
         .json({ error: "End date cannot be before start date" });
     }
 
-    // Bangun URL publik yang bisa diakses browser: /uploads/evidence/<filename>
-    // server.js sudah serve folder ini via express.static
-    const evidenceUrl = req.file
-      ? `/uploads/evidence/${req.file.filename}`
-      : null;
+    // Konversi file buffer ke Base64 data URI agar bisa disimpan di MongoDB
+    // Format: "data:<mimetype>;base64,<data>"
+    let evidenceData = null;
+    if (req.file) {
+      const base64 = req.file.buffer.toString("base64");
+      evidenceData = `data:${req.file.mimetype};base64,${base64}`;
+    }
 
     const leave = await LeaveApplication.create({
       employeeId: employee._id,
@@ -98,7 +82,7 @@ export const createLeave = async (req, res) => {
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       reason,
-      evidenceUrl,
+      evidenceData, // disimpan di MongoDB, bukan di disk
       status: "PENDING",
     });
 
@@ -126,8 +110,11 @@ export const getLeave = async (req, res) => {
       const { status } = req.query;
       const where = status ? { status } : {};
 
+      // Exclude evidenceData dari response admin (besar, tidak perlu di list)
+      // Gunakan select("-evidenceData") supaya respons tetap ringan
       const leaves = await LeaveApplication.find(where)
         .populate("employeeId")
+        .select("-evidenceData")
         .sort({ createdAt: -1 });
 
       const data = leaves.map((l) => {
@@ -148,6 +135,7 @@ export const getLeave = async (req, res) => {
       return res.status(404).json({ error: "Employee not found" });
     }
 
+    // Employee view: sertakan evidenceData agar thumbnail bisa ditampilkan
     const leaves = await LeaveApplication.find({
       employeeId: employee._id,
     }).sort({ createdAt: -1 });
@@ -159,6 +147,29 @@ export const getLeave = async (req, res) => {
   } catch (error) {
     console.error("[getLeave]", error);
     return res.status(500).json({ error: "Failed to fetch leave data" });
+  }
+};
+
+// ─── GET /api/leave/:id/evidence ──────────────────────────────────────────────
+// Endpoint khusus untuk admin mengambil evidence satu leave (lazy load)
+export const getLeaveEvidence = async (req, res) => {
+  try {
+    const leave = await LeaveApplication.findById(req.params.id).select(
+      "evidenceData employeeId",
+    );
+
+    if (!leave) {
+      return res.status(404).json({ error: "Leave application not found" });
+    }
+
+    if (!leave.evidenceData) {
+      return res.status(404).json({ error: "No evidence file attached" });
+    }
+
+    return res.json({ evidenceData: leave.evidenceData });
+  } catch (error) {
+    console.error("[getLeaveEvidence]", error);
+    return res.status(500).json({ error: "Failed to fetch evidence" });
   }
 };
 
@@ -175,7 +186,7 @@ export const updateLeaveStatus = async (req, res) => {
       req.params.id,
       { status },
       { new: true },
-    );
+    ).select("-evidenceData"); // jangan kembalikan data besar
 
     if (!leave) {
       return res.status(404).json({ error: "Leave application not found" });

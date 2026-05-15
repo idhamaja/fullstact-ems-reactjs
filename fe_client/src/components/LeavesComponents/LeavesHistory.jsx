@@ -4,17 +4,6 @@ import React, { useState } from "react";
 import api from "../../api/axios";
 import toast from "react-hot-toast";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const SERVER_URL =
-  import.meta.env.VITE_API_URL?.replace("/api", "") ?? "http://localhost:5000";
-
-/** Ubah path relatif `/uploads/...` menjadi URL absolut yang bisa dibuka browser */
-const resolveUrl = (url) => {
-  if (!url) return null;
-  return url.startsWith("http") ? url : `${SERVER_URL}${url}`;
-};
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 /** Overlay preview gambar fullscreen */
@@ -47,11 +36,20 @@ const ImagePreviewModal = ({ url, onClose }) => {
   );
 };
 
-/** Thumbnail foto bukti — klik untuk preview, fallback jika error / PDF / kosong */
-const EvidenceThumbnail = ({ evidenceUrl, onPreview }) => {
+/**
+ * Thumbnail foto bukti.
+ * - Employee view: evidenceData sudah ada di prop (Base64 data URI).
+ * - Admin view: evidenceData tidak di-include di list response untuk hemat bandwidth.
+ *   Saat admin klik thumbnail, lazy-fetch dari GET /api/leave/:id/evidence.
+ */
+const EvidenceThumbnail = ({ leave, isAdmin, onPreview }) => {
   const [imgError, setImgError] = useState(false);
+  const [loadingEvidence, setLoadingEvidence] = useState(false);
 
-  if (!evidenceUrl) {
+  const evidenceData = leave.evidenceData;
+
+  // Tidak ada evidence sama sekali
+  if (!evidenceData && !isAdmin) {
     return (
       <span className="inline-flex items-center gap-1.5 text-xs text-slate-300 italic select-none">
         <ImageOff className="w-4 h-4" />
@@ -60,21 +58,58 @@ const EvidenceThumbnail = ({ evidenceUrl, onPreview }) => {
     );
   }
 
-  const resolved = resolveUrl(evidenceUrl);
-  const isPdf =
-    /\.pdf$/i.test(evidenceUrl) || evidenceUrl.includes("application/pdf");
+  // Admin: evidenceData tidak dikirim di list, tampilkan tombol "View" yang lazy-fetch
+  if (isAdmin && !evidenceData) {
+    const handleAdminView = async () => {
+      setLoadingEvidence(true);
+      try {
+        const res = await api.get(`/leave/${leave._id || leave.id}/evidence`);
+        const data = res.data.evidenceData;
+        if (!data) {
+          toast.error("No evidence file attached.");
+          return;
+        }
+        onPreview(data);
+      } catch {
+        toast.error("Failed to load evidence.");
+      } finally {
+        setLoadingEvidence(false);
+      }
+    };
 
-  if (isPdf) {
     return (
-      <a
-        href={resolved}
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        onClick={handleAdminView}
+        disabled={loadingEvidence}
+        className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full
+                   bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100
+                   transition-colors disabled:opacity-60"
+      >
+        {loadingEvidence ? (
+          <Loader2 className="w-3 h-3 animate-spin mr-1" />
+        ) : null}
+        {loadingEvidence ? "Loading..." : "View"}
+      </button>
+    );
+  }
+
+  const isPdf = evidenceData?.startsWith("data:application/pdf");
+
+  // PDF: buka di tab baru
+  if (isPdf) {
+    const handleOpenPdf = () => {
+      const blob = dataURItoBlob(evidenceData);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    };
+    return (
+      <button
+        onClick={handleOpenPdf}
         className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full
                    bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors"
       >
         PDF
-      </a>
+      </button>
     );
   }
 
@@ -89,14 +124,14 @@ const EvidenceThumbnail = ({ evidenceUrl, onPreview }) => {
 
   return (
     <button
-      onClick={onPreview}
+      onClick={() => onPreview(evidenceData)}
       title="Click to preview"
       className="group relative w-14 h-14 rounded-xl overflow-hidden border-2 border-slate-200
                  hover:border-indigo-400 shadow-sm hover:shadow-md transition-all focus:outline-none
                  focus-visible:ring-2 focus-visible:ring-indigo-400"
     >
       <img
-        src={resolved}
+        src={evidenceData}
         alt="Evidence"
         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
         onError={() => setImgError(true)}
@@ -112,6 +147,16 @@ const EvidenceThumbnail = ({ evidenceUrl, onPreview }) => {
     </button>
   );
 };
+
+/** Helper: konversi Base64 data URI ke Blob (untuk buka PDF) */
+function dataURItoBlob(dataURI) {
+  const [header, base64] = dataURI.split(",");
+  const mime = header.match(/:(.*?);/)[1];
+  const binary = atob(base64);
+  const arr = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
 
 /** Badge status dengan warna sesuai nilai */
 const StatusBadge = ({ status }) => {
@@ -184,8 +229,6 @@ const LeavesHistory = ({ leaves, isAdmin, onUpdate }) => {
     }
   };
 
-  // non-admin: Type · Dates · Reason · Evidence · Status          = 5 kolom
-  // admin    : + Employee + Actions                                = 7 kolom
   const colSpan = isAdmin ? 7 : 5;
 
   return (
@@ -284,10 +327,9 @@ const LeavesHistory = ({ leaves, isAdmin, onUpdate }) => {
                         {/* Evidence thumbnail */}
                         <td className="px-6 py-5">
                           <EvidenceThumbnail
-                            evidenceUrl={leave.evidenceUrl}
-                            onPreview={() =>
-                              setPreviewUrl(resolveUrl(leave.evidenceUrl))
-                            }
+                            leave={leave}
+                            isAdmin={isAdmin}
+                            onPreview={setPreviewUrl}
                           />
                         </td>
 

@@ -15,8 +15,9 @@ const leaveApplicationSchema = new mongoose.Schema(
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     reason: { type: String, required: true },
-    // URL/path to the uploaded evidence file (optional)
-    evidenceUrl: { type: String, default: null },
+    // Base64 data URI dari file bukti (opsional), disimpan langsung di MongoDB
+    // Format: "data:<mimetype>;base64,<data>" — max ~5MB setelah Base64 encoding
+    evidenceData: { type: String, default: null },
     status: {
       type: String,
       enum: ["PENDING", "APPROVED", "REJECTED"],
