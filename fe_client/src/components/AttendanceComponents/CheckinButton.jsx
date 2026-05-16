@@ -5,14 +5,19 @@ import toast from "react-hot-toast";
 
 const CheckinButton = ({ todaysRecord, onAction }) => {
   const [loading, setLoading] = useState(false);
+  // ✅ Optimistic state — langsung update UI tanpa nunggu fetch
+  const [optimisticCheckedIn, setOptimisticCheckedIn] = useState(null);
 
   const handleAttendance = async () => {
     setLoading(true);
     try {
       await api.post("/attendance");
-      onAction();
+      // ✅ Set optimistic state dulu sebelum onAction selesai
+      setOptimisticCheckedIn(!isCheckedIn);
+      await onAction();
     } catch (error) {
       toast.error(error?.response?.data?.error || error.message);
+      setOptimisticCheckedIn(null); // reset kalau error
     }
     setLoading(false);
   };
@@ -28,8 +33,11 @@ const CheckinButton = ({ todaysRecord, onAction }) => {
     );
   }
 
-  // ✅ Fix: cek checkIn bukan isCheckedIn (field ini tidak ada di schema)
-  const isCheckedIn = !!todaysRecord?.checkIn;
+  // ✅ Pakai optimisticCheckedIn kalau ada, fallback ke data dari server
+  const isCheckedIn =
+    optimisticCheckedIn !== null
+      ? optimisticCheckedIn
+      : !!todaysRecord?.checkIn;
 
   return (
     <div className="absolute bottom-4 right-4 flex flex-col z-1">
