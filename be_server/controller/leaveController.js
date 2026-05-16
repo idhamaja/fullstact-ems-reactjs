@@ -5,9 +5,6 @@ import Employee from "../models/Employee.js";
 import LeaveApplication from "../models/LeaveApplication.js";
 
 // ─── Multer Setup ─────────────────────────────────────────────────────────────
-// Pakai memoryStorage — file TIDAK disimpan ke disk, langsung ke buffer di RAM
-// lalu dikonversi ke Base64 dan disimpan di MongoDB
-
 const fileFilter = (req, file, cb) => {
   const allowedMimes = ["image/jpeg", "image/png", "application/pdf"];
   const allowedExts = /\.(jpeg|jpg|png|pdf)$/i;
@@ -21,9 +18,9 @@ const fileFilter = (req, file, cb) => {
 };
 
 export const upload = multer({
-  storage: multer.memoryStorage(), // buffer di RAM, tidak ke disk
+  storage: multer.memoryStorage(),
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 // ─── POST /api/leave ──────────────────────────────────────────────────────────
@@ -33,8 +30,8 @@ export const createLeave = async (req, res) => {
       return res.status(400).json({ error: "Request body missing." });
     }
 
-    const session = req.session;
-    const employee = await Employee.findOne({ userId: session.userId });
+    // ✅ FIX: req.session → req.user, session.userId → req.user.userId
+    const employee = await Employee.findOne({ userId: req.user.userId });
 
     if (!employee) {
       return res.status(404).json({ error: "Employee not found" });
@@ -57,19 +54,13 @@ export const createLeave = async (req, res) => {
     today.setHours(0, 0, 0, 0);
 
     if (new Date(startDate) <= today || new Date(endDate) <= today) {
-      return res
-        .status(400)
-        .json({ error: "Leave dates must be in the future" });
+      return res.status(400).json({ error: "Leave dates must be in the future" });
     }
 
     if (new Date(endDate) < new Date(startDate)) {
-      return res
-        .status(400)
-        .json({ error: "End date cannot be before start date" });
+      return res.status(400).json({ error: "End date cannot be before start date" });
     }
 
-    // Konversi file buffer ke Base64 data URI agar bisa disimpan di MongoDB
-    // Format: "data:<mimetype>;base64,<data>"
     let evidenceData = null;
     if (req.file) {
       const base64 = req.file.buffer.toString("base64");
@@ -82,7 +73,7 @@ export const createLeave = async (req, res) => {
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       reason,
-      evidenceData, // disimpan di MongoDB, bukan di disk
+      evidenceData,
       status: "PENDING",
     });
 
@@ -94,24 +85,20 @@ export const createLeave = async (req, res) => {
     return res.status(201).json({ success: true, data: leave });
   } catch (error) {
     console.error("[createLeave]", error);
-    return res
-      .status(500)
-      .json({ error: "Failed to submit leave application" });
+    return res.status(500).json({ error: "Failed to submit leave application" });
   }
 };
 
 // ─── GET /api/leave ───────────────────────────────────────────────────────────
 export const getLeave = async (req, res) => {
   try {
-    const session = req.session;
-    const isAdmin = session.role === "ADMIN";
+    // ✅ FIX: pakai req.user konsisten, hapus variabel session yang tidak terdefinisi
+    const isAdmin = req.user.role === "ADMIN";
 
     if (isAdmin) {
       const { status } = req.query;
       const where = status ? { status } : {};
 
-      // Exclude evidenceData dari response admin (besar, tidak perlu di list)
-      // Gunakan select("-evidenceData") supaya respons tetap ringan
       const leaves = await LeaveApplication.find(where)
         .populate("employeeId")
         .select("-evidenceData")
@@ -130,12 +117,12 @@ export const getLeave = async (req, res) => {
       return res.json({ data });
     }
 
-    const employee = await Employee.findOne({ userId: session.userId }).lean();
+    // ✅ FIX: req.user.userId (sesuai JWT payload)
+    const employee = await Employee.findOne({ userId: req.user.userId }).lean();
     if (!employee) {
       return res.status(404).json({ error: "Employee not found" });
     }
 
-    // Employee view: sertakan evidenceData agar thumbnail bisa ditampilkan
     const leaves = await LeaveApplication.find({
       employeeId: employee._id,
     }).sort({ createdAt: -1 });
@@ -151,11 +138,10 @@ export const getLeave = async (req, res) => {
 };
 
 // ─── GET /api/leave/:id/evidence ──────────────────────────────────────────────
-// Endpoint khusus untuk admin mengambil evidence satu leave (lazy load)
 export const getLeaveEvidence = async (req, res) => {
   try {
     const leave = await LeaveApplication.findById(req.params.id).select(
-      "evidenceData employeeId",
+      "evidenceData employeeId"
     );
 
     if (!leave) {
@@ -185,8 +171,8 @@ export const updateLeaveStatus = async (req, res) => {
     const leave = await LeaveApplication.findByIdAndUpdate(
       req.params.id,
       { status },
-      { new: true },
-    ).select("-evidenceData"); // jangan kembalikan data besar
+      { new: true }
+    ).select("-evidenceData");
 
     if (!leave) {
       return res.status(404).json({ error: "Leave application not found" });

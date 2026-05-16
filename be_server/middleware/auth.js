@@ -13,7 +13,8 @@ export const protect = (req, res, next) => {
     if (!session) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    req.session = session;
+
+    req.user = session; // ✅ FIX: req.session → req.user
     next();
   } catch (error) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -21,7 +22,8 @@ export const protect = (req, res, next) => {
 };
 
 export const protectAdmin = (req, res, next) => {
-  if (req?.session?.role !== "ADMIN") {
+  if (req?.user?.role !== "ADMIN") {
+    // ✅ FIX: req.session → req.user
     return res.status(403).json({ error: "Admin access required" });
   }
   next();

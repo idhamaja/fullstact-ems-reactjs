@@ -6,7 +6,7 @@ import { DEPARTMENTS } from "../constant/departments.js";
 
 export const getDashboardEMS = async (req, res) => {
   try {
-    const { role, userId } = req.session; // ✅ tetap req.session sesuai middleware
+    const { role, userId } = req.user; // ✅ FIX: destructure userId dari req.user
 
     if (role === "ADMIN") {
       const [totalEmployees, todayAttendance, pendingLeaves] =
@@ -25,10 +25,11 @@ export const getDashboardEMS = async (req, res) => {
         role: "ADMIN",
         totalEmployees,
         totalDepartments: DEPARTMENTS.length,
-        todayAttendance, // ✅ fix: nama field sesuai frontend
+        todayAttendance,
         pendingLeaves,
       });
     } else {
+      // ✅ FIX: userId sekarang terdefinisi dari req.user
       const employee = await Employee.findOne({ userId }).lean();
       if (!employee)
         return res.status(404).json({ error: "Employee is not Found!!" });
@@ -38,7 +39,6 @@ export const getDashboardEMS = async (req, res) => {
       const [currentMonthAttendance, pendingLeaves, latestPayslip] =
         await Promise.all([
           Attendance.countDocuments({
-            // ✅ fix: Attentande → Attendance
             employeeId: employee._id,
             date: {
               $gte: new Date(today.getFullYear(), today.getMonth(), 1),
@@ -46,7 +46,6 @@ export const getDashboardEMS = async (req, res) => {
             },
           }),
           LeaveApplication.countDocuments({
-            // ✅ fix: pisah dari countDocuments sebelumnya
             employeeId: employee._id,
             status: "PENDING",
           }),

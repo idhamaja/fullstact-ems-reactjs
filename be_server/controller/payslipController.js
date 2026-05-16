@@ -1,19 +1,18 @@
-//Create Payslip
-
 import Employee from "../models/Employee.js";
 import Payslip from "../models/Payslip.js";
 
-//POST /api/payslips
+// POST /api/payslips
 export const createPayslip = async (req, res) => {
   try {
     const { employeeId, month, year, basicSalary, allowances, deductions } =
       req.body;
 
     if (!employeeId || !month || !year || !basicSalary) {
-      return res.status(400).json({ error: "Warning Fields" });
+      return res.status(400).json({ error: "Required fields are missing" });
     }
+
     const netSalary =
-      Number(basicSalary) + (allowances || 0) - Number(deductions || 0);
+      Number(basicSalary) + Number(allowances || 0) - Number(deductions || 0);
 
     const payslip = await Payslip.create({
       employeeId,
@@ -27,63 +26,99 @@ export const createPayslip = async (req, res) => {
 
     return res.json({ success: true, data: payslip });
   } catch (error) {
-    return res.status(500).json({ error: "Failed Server" });
+    console.error("createPayslip error:", error);
+    return res.status(500).json({ error: error.message });
   }
 };
 
-//Get Payslip
-//GET /api/payslips
-export const getPayslip = async (params) => {
+// GET /api/payslips
+export const getPayslip = async (req, res) => {
   try {
-    const session = req.session;
-    const isAdmin = session.role === "ADMIN";
+    // ✅ Robust role check: handle berbagai kemungkinan struktur req.user
+    const role = req.user?.role || req.user?.Role || req.user?.userRole || "";
+
+    const isAdmin = role.toString().toUpperCase() === "ADMIN";
+
+    console.log("getPayslip → req.user:", req.user, "| isAdmin:", isAdmin);
+
     if (isAdmin) {
       const payslips = await Payslip.find()
-        .populate("employeeId")
+        .populate("employeeId", "firstName lastName position department")
         .sort({ createdAt: -1 });
+
       const data = payslips.map((p) => {
         const obj = p.toObject();
         return {
           ...obj,
           id: obj._id.toString(),
-          employee: obj.employeeId,
+          employee: obj.employeeId, // hasil populate
           employeeId: obj.employeeId?._id?.toString(),
         };
       });
-      return res.json({ data });
-    } else {
-      const employee = await Employee.findOne({
-        userId: session.userId,
-      });
-      if (!employee) return res.status(404).json({ error: "Not found" });
 
-      const payslips = await Payslip.find({ employeeId: employee._id }).sort({
-        createdAt: -1,
-      });
-      return res.json({ data: payslips });
+      return res.json({ success: true, data });
     }
+
+    // ── Non-admin: cari employee berdasarkan userId ──
+    const userId = req.user?.id || req.user?._id || req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized: user id not found" });
+    }
+
+    const employee = await Employee.findOne({ userId });
+
+    if (!employee) {
+      // ✅ Employee record belum ada untuk user ini — kembalikan array kosong
+      // daripada throw 404 supaya UI tidak error
+      return res.json({ success: true, data: [] });
+    }
+
+    const payslips = await Payslip.find({ employeeId: employee._id }).sort({
+      createdAt: -1,
+    });
+
+    return res.json({ success: true, data: payslips });
   } catch (error) {
-    return res.status(500).json({ error: "Failed Server" });
+    console.error("getPayslip error:", error);
+    return res.status(500).json({ error: error.message });
   }
 };
 
-//Get Payslip By Id
-//GET /api/payslips/:id
-export const getPayslipById = async (params) => {
+// GET /api/payslips/:id
+export const getPayslipById = async (req, res) => {
   try {
     const payslip = await Payslip.findById(req.params.id)
-      .populate("employeeId")
+      .populate({
+        path: "employeeId",
+        select: "firstName lastName position department userId email",
+        populate: {
+          path: "userId", // ✅ join ke User untuk ambil email
+          select: "email",
+        },
+      })
       .lean();
 
-    if (!payslip) return res.status(404).json({ error: "Data is Not Found" });
+    if (!payslip) {
+      return res.status(404).json({ error: "Payslip not found" });
+    }
 
-    const result = {
-      ...payslip,
-      id: payslip._id.toString(),
-    };
+    const emp = payslip.employeeId;
 
-    return res.json({ result });
+    return res.json({
+      success: true,
+      data: {
+        ...payslip,
+        id: payslip._id.toString(),
+        employee: {
+          ...emp,
+          // ✅ ambil email dari Employee langsung, atau fallback dari User
+          email: emp?.email ?? emp?.userId?.email ?? "—",
+        },
+      },
+    });
   } catch (error) {
-    return res.status(500).json({ error: "Failed Server Error" });
+    console.error("getPayslipById error:", error);
+    return res.status(500).json({ error: error.message });
   }
 };

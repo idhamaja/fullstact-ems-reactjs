@@ -3,6 +3,9 @@ import { Download } from "lucide-react";
 import React from "react";
 
 const PayslipsList = ({ payslips, isAdmin }) => {
+  // Total columns: Employee(admin)? + Period + Basic Salary + Net Salary + Actions
+  const colSpan = isAdmin ? 5 : 4;
+
   return (
     <div className="w-full mt-6">
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -26,6 +29,12 @@ const PayslipsList = ({ payslips, isAdmin }) => {
                   Basic Salary
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Allowances
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Deductions
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Net Salary
                 </th>
                 <th className="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-40">
@@ -38,7 +47,7 @@ const PayslipsList = ({ payslips, isAdmin }) => {
               {payslips.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 5 : 4}
+                    colSpan={isAdmin ? 7 : 6}
                     className="px-6 py-20 text-center text-slate-400 text-base"
                   >
                     No payslips found
@@ -52,7 +61,12 @@ const PayslipsList = ({ payslips, isAdmin }) => {
                   >
                     {isAdmin && (
                       <td className="px-6 py-4 text-sm text-slate-800 font-medium whitespace-nowrap">
-                        {pSlip.employee?.firstName} {pSlip.employee?.lastName}
+                        {pSlip.employee?.firstName ??
+                          pSlip.employeeId?.firstName ??
+                          "—"}{" "}
+                        {pSlip.employee?.lastName ??
+                          pSlip.employeeId?.lastName ??
+                          ""}
                       </td>
                     )}
 
@@ -69,9 +83,21 @@ const PayslipsList = ({ payslips, isAdmin }) => {
                       </span>
                     </td>
 
+                    <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">
+                      <span className="font-medium text-emerald-600">
+                        +${pSlip.allowances?.toLocaleString() ?? "0"}
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">
+                      <span className="font-medium text-rose-500">
+                        -${pSlip.deductions?.toLocaleString() ?? "0"}
+                      </span>
+                    </td>
+
                     <td className="px-6 py-4 text-sm whitespace-nowrap">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-semibold text-sm">
-                        ${pSlip.netSalary?.toLocaleString()}
+                        ${pSlip.netSalary?.toLocaleString() ?? "—"}
                       </span>
                     </td>
 
@@ -88,47 +114,6 @@ const PayslipsList = ({ payslips, isAdmin }) => {
                         Download
                       </button>
                     </td>
-
-                    {isAdmin && (
-                      <td className="px-6 py-4">
-                        {pSlip.status === "PENDING" && (
-                          <div className="flex items-center justify-center gap-3">
-                            <button
-                              onClick={() =>
-                                handleStatusUpdate(
-                                  pSlip._id || pSlip.id,
-                                  "APPROVED",
-                                )
-                              }
-                              disabled={!!processing}
-                              className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-all disabled:opacity-50"
-                            >
-                              {processing === (pSlip._id || pSlip.id) ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                              ) : (
-                                <Check className="w-5 h-5" />
-                              )}
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleStatusUpdate(
-                                  pSlip._id || pSlip.id,
-                                  "REJECTED",
-                                )
-                              }
-                              disabled={!!processing}
-                              className="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-all disabled:opacity-50"
-                            >
-                              {processing === (pSlip._id || pSlip.id) ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                              ) : (
-                                <X className="w-5 h-5" />
-                              )}
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    )}
                   </tr>
                 ))
               )}

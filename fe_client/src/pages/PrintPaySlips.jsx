@@ -1,23 +1,75 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { dummyPayslipData } from "../assets/assets";
 import Loading from "../components/Loading";
 import { format } from "date-fns";
+import axios from "axios";
+
+// ✅ Instance axios mandiri — bebas dari interceptor redirect
+const printApi = axios.create({
+  baseURL: (import.meta.env.VITE_BASE_URL || "http://localhost:5000") + "/api",
+  timeout: 10000000,
+});
 
 const PrintPaySlips = () => {
   const { id } = useParams();
   const [payslip, setPayslip] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // ✅ Capture token synchronously sebelum AuthProvider sempat menghapusnya
+  const tokenRef = useRef(localStorage.getItem("token"));
 
   useEffect(() => {
-    setPayslip(dummyPayslipData.find((slip) => slip._id === id));
-    setTimeout(() => {
+    const token = tokenRef.current;
+
+    if (!token) {
+      setError("Session tidak ditemukan. Tutup tab ini dan coba lagi.");
       setLoading(false);
-    }, 1000);
+      return;
+    }
+
+    printApi
+      .get(`/payslips/${id}`, {
+        // ✅ Inject token langsung, tidak lewat interceptor
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        const data = res.data?.data ?? res.data?.result ?? res.data;
+        setPayslip(data);
+      })
+      .catch((err) => {
+        setError(
+          err.response?.data?.error || err.message || "Gagal memuat payslip.",
+        );
+      })
+      .finally(() => setLoading(false));
   }, [id]);
 
   if (loading) return <Loading />;
-  if (!payslip) return <p>Payslip is not found!</p>;
+
+  if (error)
+    return (
+      <div className="max-w-2xl mx-auto p-8 text-center">
+        <p className="text-rose-500 font-medium mb-4">{error}</p>
+        <button className="btn-primary" onClick={() => window.close()}>
+          Tutup Tab
+        </button>
+      </div>
+    );
+
+  if (!payslip)
+    return (
+      <div className="max-w-2xl mx-auto p-8 text-center">
+        <p className="text-slate-500">Payslip tidak ditemukan.</p>
+      </div>
+    );
+
+  const periodDate =
+    payslip.year && payslip.month
+      ? new Date(payslip.year, payslip.month - 1)
+      : null;
+
+  const employee = payslip.employee ?? payslip.employeeId;
 
   return (
     <div className="max-w-2xl mx-auto p-8 bg-white animate-fade-in">
@@ -26,16 +78,17 @@ const PrintPaySlips = () => {
           PAYSLIP DATA EMPLOYEE
         </h1>
         <p className="text-slate-500 text-sm mt-1">
-          {format(new Date(payslip.year, payslip.month - 1), "MMMM yyyy")}{" "}
+          {periodDate ? format(periodDate, "MMMM yyyy") : "—"}
         </p>
       </div>
+
       <div className="grid grid-cols-2 gap-6 mb-8">
         <div>
           <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
             Employee Name
           </p>
           <p className="font-semibold text-slate-900">
-            {payslip.employee?.firstName} {payslip.employee?.lastName}
+            {employee?.firstName} {employee?.lastName}
           </p>
         </div>
 
@@ -44,7 +97,7 @@ const PrintPaySlips = () => {
             Position
           </p>
           <p className="font-semibold text-slate-900">
-            {payslip.employee?.position}
+            {employee?.position ?? "—"}
           </p>
         </div>
 
@@ -53,7 +106,7 @@ const PrintPaySlips = () => {
             Email Address
           </p>
           <p className="font-semibold text-slate-900">
-            {payslip.employee?.email}
+            {employee?.email ?? employee?.userId?.email ?? "—"}
           </p>
         </div>
 
@@ -62,10 +115,11 @@ const PrintPaySlips = () => {
             Period
           </p>
           <p className="font-semibold text-slate-900">
-            {format(new Date(payslip.year, payslip.month - 1), "MMMM yyyy")}
+            {periodDate ? format(periodDate, "MMMM yyyy") : "—"}
           </p>
         </div>
       </div>
+
       <div className="rounded-xl border border-slate-200 overflow-hidden mb-8">
         <table className="w-full text-sm">
           <thead>
@@ -73,7 +127,7 @@ const PrintPaySlips = () => {
               <th className="text-left py-4 px-4 text-xs text-slate-500 uppercase tracking-wider">
                 Description
               </th>
-              <th className="text-left py-4 px-4 text-xs text-slate-500 uppercase tracking-wider">
+              <th className="text-right py-4 px-4 text-xs text-slate-500 uppercase tracking-wider">
                 Amount
               </th>
             </tr>
@@ -82,33 +136,31 @@ const PrintPaySlips = () => {
             <tr className="border-t border-slate-100">
               <td className="py-3 px-4 text-slate-700">Basic Salary</td>
               <td className="text-right py-3 px-4 text-slate-900 font-medium">
-                ${payslip.basicSalary.toLocaleString()}
+                ${payslip.basicSalary?.toLocaleString() ?? "0"}
               </td>
             </tr>
-
             <tr className="border-t border-slate-100">
               <td className="py-3 px-4 text-slate-700">Allowances</td>
-              <td className="text-right py-3 px-4 text-slate-900 font-medium">
-                +${payslip.allowances.toLocaleString()}
+              <td className="text-right py-3 px-4 text-emerald-600 font-medium">
+                +${payslip.allowances?.toLocaleString() ?? "0"}
               </td>
             </tr>
-
             <tr className="border-t border-slate-100">
               <td className="py-3 px-4 text-slate-700">Deductions</td>
-              <td className="text-right py-3 px-4 text-slate-900 font-medium">
-                -${payslip.deductions.toLocaleString()}
+              <td className="text-right py-3 px-4 text-rose-500 font-medium">
+                -${payslip.deductions?.toLocaleString() ?? "0"}
               </td>
             </tr>
-
             <tr className="border-t-2 border-slate-300 bg-slate-50">
               <td className="py-4 px-4 font-bold text-slate-900">Net Salary</td>
-              <td className="text-right py-3 px-4 text-slate-900 font-medium">
-                ${payslip.netSalary.toLocaleString()}
+              <td className="text-right py-3 px-4 font-bold text-slate-900">
+                ${payslip.netSalary?.toLocaleString() ?? "0"}
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+
       <div className="text-center">
         <button
           className="btn-primary print:hidden"

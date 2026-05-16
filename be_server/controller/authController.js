@@ -1,10 +1,8 @@
-//login for employee and admin
-//POST /api/auth/login
-
-import User from "../models/User.js"; // ✅
+import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+// POST /api/auth/login
 export const login = async (req, res) => {
   try {
     const { email, password, role_type } = req.body;
@@ -13,9 +11,7 @@ export const login = async (req, res) => {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
-    const user = await User.findOne({
-      email,
-    });
+    const user = await User.findOne({ email });
 
     if (!user) {
       return res.status(401).json({ error: "Invalid credentials" });
@@ -30,7 +26,6 @@ export const login = async (req, res) => {
     }
 
     const isValid = await bcrypt.compare(password, user.password);
-
     if (!isValid) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
@@ -52,30 +47,41 @@ export const login = async (req, res) => {
   }
 };
 
-//GET session for employee and admin
-//GET /api/auth/session
+// GET /api/auth/session
 export const getSession = async (req, res) => {
-  const session = req.session;
-  return res.json({ user: session });
+  // ✅ FIX: req.session → req.user (sudah di-attach oleh middleware protect)
+  return res.json({ user: req.user });
 };
 
-//change password for employee and admin
-//POST api/auth/change-password
+// POST /api/auth/change-password
 export const changePassword = async (req, res) => {
   try {
-    const session = req.session;
+    // ✅ FIX: req.session → req.user
+    const { userId } = req.user;
     const { currentPassword, newPassword } = req.body;
+
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: "Both passwords are required" });
     }
-    const user = await User.findById(session.userId);
-    if (!user) return res.status(404).json({ error: "User is not Found" });
+
+    if (newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ error: "New password must be at least 6 characters" });
+    }
+
+    // ✅ FIX: session.userId → userId dari req.user
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
     const isValid = await bcrypt.compare(currentPassword, user.password);
-    if (!isValid)
+    if (!isValid) {
       return res.status(400).json({ error: "Current password is incorrect" });
+    }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await User.findByIdAndUpdate(session.userId, { password: hashedPassword });
+    await User.findByIdAndUpdate(userId, { password: hashedPassword });
+
     return res.json({ success: true });
   } catch (error) {
     console.error("Change password error:", error);

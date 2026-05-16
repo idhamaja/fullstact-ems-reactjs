@@ -1,43 +1,55 @@
-//GET profile
+import Employee from "../models/Employee.js";
 
-//GET /api/profile
+// GET /api/profile
 export const getProfile = async (req, res) => {
   try {
-    const session = req.session;
-    const employee = await Employee.findOne({ userId: session.userId });
+    // ✅ FIX: req.session → req.user
+    const { userId, email } = req.user;
+    const employee = await Employee.findOne({ userId });
 
     if (!employee) {
-      //Authenticated user is not an employee - return admin profile
+      // User adalah Admin — tidak punya data employee
       return res.json({
         firstName: "Admin",
         lastName: "",
-        email: session.email,
+        email: email,
+        position: "Administrator",
+        bio: "",
+        isDeleted: false,
       });
     }
+
     return res.json(employee);
   } catch (error) {
+    console.error("[getProfile]", error);
     return res.status(500).json({ error: "Failed to fetch profile" });
   }
 };
 
-//Update profile
-//PUT /api/profile
+// POST /api/profile
 export const updateProfile = async (req, res) => {
   try {
-    const session = req.session;
-    const employee = await Employee.findOne({ userId: session.userId });
-    if (!employee)
-      return res.status(404).json({ error: "Employee is not Found" });
+    // ✅ FIX: req.session → req.user
+    const { userId } = req.user;
+    const employee = await Employee.findOne({ userId });
+
+    if (!employee) return res.status(404).json({ error: "Employee not found" });
+
     if (employee.isDeleted) {
       return res.status(403).json({
-        error: "Your account is deactivated. you cannot update your profile",
+        error: "Your account is deactivated. You cannot update your profile",
       });
     }
-    await Employee.findByIdAndUpdate(employee._id, {
-      bio: req.body.bio,
-    });
-    return res.json({ success: true });
+
+    const updated = await Employee.findByIdAndUpdate(
+      employee._id,
+      { bio: req.body.bio },
+      { new: true }, // ✅ kembalikan data terbaru
+    );
+
+    return res.json({ success: true, data: updated });
   } catch (error) {
-    return res.status(500).json({ error: "Failed to update Profile" });
+    console.error("[updateProfile]", error);
+    return res.status(500).json({ error: "Failed to update profile" });
   }
 };

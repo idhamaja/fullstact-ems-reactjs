@@ -1,5 +1,6 @@
-import { Loader2Icon, LoaderIcon, LockIcon, X } from "lucide-react";
+import { Loader2Icon, LockIcon, X } from "lucide-react";
 import React, { useState } from "react";
+import api from "../api/axios";
 
 const ChangePasswordModal = ({ open, onClose }) => {
   const [loading, setLoading] = useState(false);
@@ -7,6 +8,32 @@ const ChangePasswordModal = ({ open, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setMessage({ type: "", text: "" });
+    const formData = new FormData(e.currentTarget);
+    const currentPassword = formData.get("currentPassword");
+    const newPassword = formData.get("newPassword");
+
+    try {
+      const { data } = await api.post("/auth/change-password", {
+        currentPassword,
+        newPassword,
+      });
+      if (!data.success) throw new Error(data.error || "Failed!");
+      setMessage({ type: "success", text: "Password Updated Successfully!" });
+      e.target.reset();
+    } catch (error) {
+      // ✅ FIX: optional chaining agar tidak crash
+      setMessage({
+        type: "error",
+        text:
+          error?.response?.data?.error ||
+          error?.message ||
+          "Failed to update password",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!open) return null;
@@ -35,25 +62,32 @@ const ChangePasswordModal = ({ open, onClose }) => {
         </div>
 
         <form className="p-6 space-y-5" onSubmit={handleSubmit}>
+          {/* ✅ FIX: teks pesan dipindah ke luar dot div */}
           {message.text && (
             <div
-              className={`p-3 rounded-xl text-sm flex items-start gap-3 ${message.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"}`}
+              className={`p-3 rounded-xl text-sm flex items-start gap-3 ${
+                message.type === "success"
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-rose-50 text-rose-700 border border-rose-200"
+              }`}
             >
               <div
-                className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${message.type === "success" ? "bg-emerald-500" : "bg-rose-500"}`}
-              >
-                {message.text}
-              </div>
+                className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
+                  message.type === "success" ? "bg-emerald-500" : "bg-rose-500"
+                }`}
+              />
+              <span>{message.text}</span>
             </div>
           )}
-          <div className="">
+
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Current Password
             </label>
             <input type="password" name="currentPassword" required />
           </div>
 
-          <div className="">
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               New Password
             </label>
@@ -68,11 +102,10 @@ const ChangePasswordModal = ({ open, onClose }) => {
             >
               Cancel
             </button>
-
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary flex-1 justify-center items-center gap-2"
+              className="btn-primary flex-1 flex justify-center items-center gap-2"
             >
               {loading && <Loader2Icon className="w-4 h-4 animate-spin" />}
               Update Password

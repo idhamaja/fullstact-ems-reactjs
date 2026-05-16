@@ -15,29 +15,70 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const clearSession = useCallback(() => {
+    // ✅ Jangan clear session jika sedang di halaman print
+    if (window.location.pathname.startsWith("/print")) return;
     localStorage.removeItem("token");
     setUser(null);
     setToken(null);
   }, []);
 
   const refreshSession = useCallback(async () => {
-    const storedToken = localStorage.getItem("token");
-    if (!storedToken) {
-      clearSession();
+    // ✅ Skip refresh di halaman print
+    if (window.location.pathname.startsWith("/print")) {
       setLoading(false);
       return;
     }
+
+    const storedToken = localStorage.getItem("token");
+
+    // ✅ Tidak ada token → belum login, tidak perlu fetch
+    if (!storedToken) {
+      setUser(null);
+      setToken(null);
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data } = await api.get("/auth/session");
       if (data?.user) {
         setUser(data.user);
         setToken(storedToken);
       } else {
+        // ✅ Response tidak valid tapi bukan error jaringan
+        // → token mungkin expired, baru clear session
         clearSession();
       }
     } catch (error) {
-      if (error.response?.status === 401 || error.response?.status === 403) {
+      const status = error?.response?.status;
+
+      if (status === 401 || status === 403) {
+        // ✅ Token benar-benar invalid/expired → logout
         clearSession();
+      } else {
+        // ✅ Error jaringan / server down / timeout
+        // → JANGAN logout, restore user dari token yang tersimpan
+        // decode token manual untuk restore state
+        try {
+          const payload = JSON.parse(atob(storedToken.split(".")[1]));
+          const isExpired = payload.exp * 1000 < Date.now();
+
+          if (isExpired) {
+            // Token sudah expired → logout
+            clearSession();
+          } else {
+            // Token masih valid, restore user dari payload
+            setUser({
+              userId: payload.userId,
+              role: payload.role,
+              email: payload.email,
+            });
+            setToken(storedToken);
+          }
+        } catch {
+          // Token corrupt → logout
+          clearSession();
+        }
       }
     } finally {
       setLoading(false);
@@ -53,7 +94,7 @@ export function AuthProvider({ children }) {
       const { data } = await api.post("/auth/login", {
         email,
         password,
-        role_type, // ⬅️ kirim apa adanya (lowercase), sesuai ekspektasi backend
+        role_type,
       });
 
       if (!data?.token || !data?.user) {

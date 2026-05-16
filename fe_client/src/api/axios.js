@@ -1,26 +1,24 @@
 import axios from "axios";
 
+const BASE =
+  (import.meta.env.VITE_BASE_URL || "http://localhost:5000") + "/api";
+
+// Instance utama — dengan redirect interceptor
 const api = axios.create({
-  baseURL: (import.meta.env.VITE_BASE_URL || "http://localhost:5000") + "/api",
-  timeout: 10000, // ⬅️ tambah timeout 10 detik
-  headers: {
-    "Content-Type": "application/json",
-  },
+  baseURL: BASE,
+  timeout: 10000000,
+  headers: { "Content-Type": "application/json" },
 });
 
-// Attach Auth token to all network requests
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
-  (error) => Promise.reject(error) // ⬅️ tambah error handler
+  (error) => Promise.reject(error),
 );
 
-// ⬅️ Tambah response interceptor untuk handle token expired / unauthorized
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -29,7 +27,23 @@ api.interceptors.response.use(
       window.location.href = "/login";
     }
     return Promise.reject(error);
-  }
+  },
+);
+
+// ✅ Instance khusus print — TANPA redirect interceptor
+export const printApi = axios.create({
+  baseURL: BASE,
+  timeout: 10000000,
+  headers: { "Content-Type": "application/json" },
+});
+
+printApi.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    return config;
+  },
+  (error) => Promise.reject(error),
 );
 
 export default api;
