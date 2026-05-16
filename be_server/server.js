@@ -1,5 +1,4 @@
 import express from "express";
-import cors from "cors";
 import "dotenv/config";
 
 import connectDB from "./config/db.js";
@@ -15,8 +14,6 @@ import { serve } from "inngest/express";
 import { inngest, functions } from "./inngest/index.js";
 
 const app = express();
-
-connectDB();
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -48,8 +45,19 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
+// ✅ connectDB di setiap request — wajib untuk Vercel serverless
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("DB Error:", error.message);
+    return res.status(500).json({ error: "Database connection failed" });
+  }
+});
+
 app.get("/", (req, res) => {
-  res.status(200).send("Server is running Boss!!");
+  res.status(200).send("Server is running Boss Mantaps!!");
 });
 
 app.use("/api/auth", authRouter);
