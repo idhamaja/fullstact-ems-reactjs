@@ -18,10 +18,20 @@ const app = express();
 
 connectDB();
 
-// ✅ Set headers CORS manual di level paling awal
+// ✅ Whitelist semua origin yang diizinkan
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use((req, res, next) => {
-  const allowedOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
-  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+
   res.setHeader(
     "Access-Control-Allow-Methods",
     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
@@ -29,7 +39,7 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
   res.setHeader("Access-Control-Allow-Credentials", "false");
 
-  // ✅ Jawab preflight langsung di sini, tidak boleh redirect
+  // ✅ Jawab preflight langsung
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
