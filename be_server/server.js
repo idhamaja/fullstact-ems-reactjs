@@ -26,12 +26,19 @@ const corsOptions = {
   credentials: false,
 };
 
+// ✅ CORS dan preflight HARUS dipasang PALING ATAS, sebelum apapun
 app.use(cors(corsOptions));
-
-// ✅ FIX: gunakan named wildcard, bukan bare "*"
 app.options("/{*path}", cors(corsOptions));
 
 app.use(express.json());
+
+// ✅ Tambahkan middleware ini untuk mencegat redirect pada preflight
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 app.get("/", (req, res) => {
   res.status(200).send("Server is running Boss!!");
