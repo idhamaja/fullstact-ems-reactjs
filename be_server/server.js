@@ -3,7 +3,6 @@ import cors from "cors";
 import "dotenv/config";
 
 import connectDB from "./config/db.js";
-
 import authRouter from "./routes/authRoutes.js";
 import employeeRouter from "./routes/employeeRoutes.js";
 import profileRouter from "./routes/profileRoutes.js";
@@ -19,26 +18,25 @@ const app = express();
 
 connectDB();
 
-const corsOptions = {
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: false,
-};
-
-// ✅ CORS dan preflight HARUS dipasang PALING ATAS, sebelum apapun
-app.use(cors(corsOptions));
-app.options("/{*path}", cors(corsOptions));
-
-app.use(express.json());
-
-// ✅ Tambahkan middleware ini untuk mencegat redirect pada preflight
+// ✅ Set headers CORS manual di level paling awal
 app.use((req, res, next) => {
+  const allowedOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
+  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+  );
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "false");
+
+  // ✅ Jawab preflight langsung di sini, tidak boleh redirect
   if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
+    return res.status(200).end();
   }
   next();
 });
+
+app.use(express.json());
 
 app.get("/", (req, res) => {
   res.status(200).send("Server is running Boss!!");

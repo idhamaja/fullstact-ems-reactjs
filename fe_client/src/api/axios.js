@@ -1,17 +1,27 @@
 import axios from "axios";
 
-const BASE =
-  (import.meta.env.VITE_BASE_URL || "http://localhost:5000") + "/api";
+const baseURL = import.meta.env.VITE_BASE_URL || "http://localhost:5000";
+
+// ✅ Pastikan tidak ada trailing slash di base URL
+const cleanBase = baseURL.replace(/\/+$/, "");
+const BASE = `${cleanBase}/api`;
 
 const api = axios.create({
   baseURL: BASE,
-  timeout: 15000000, 
+  timeout: 15000,
   headers: { "Content-Type": "application/json" },
-  withCredentials: false, // ✅ pastikan tidak kirim cookie yang bisa trigger redirect
+  withCredentials: false,
 });
 
 api.interceptors.request.use(
   (config) => {
+    // ✅ Debug - hapus setelah fix
+    console.log(
+      "API Request:",
+      config.method?.toUpperCase(),
+      config.baseURL + config.url,
+    );
+
     const token = localStorage.getItem("token");
     if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
@@ -22,7 +32,6 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // ✅ FIX: hanya redirect jika bukan halaman print dan bukan network error
     if (
       error.response?.status === 401 &&
       !window.location.pathname.startsWith("/print")
@@ -36,7 +45,7 @@ api.interceptors.response.use(
 
 export const printApi = axios.create({
   baseURL: BASE,
-  timeout: 15000000,
+  timeout: 15000,
   headers: { "Content-Type": "application/json" },
   withCredentials: false,
 });
