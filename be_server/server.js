@@ -18,18 +18,19 @@ const app = express();
 
 connectDB();
 
-// ✅ Whitelist semua origin yang diizinkan
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
+  "https://fullstact-ems-reactjs-fe-client.vercel.app",
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
+// ✅ CORS middleware paling atas
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
   }
 
   res.setHeader(
@@ -39,7 +40,6 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
   res.setHeader("Access-Control-Allow-Credentials", "false");
 
-  // ✅ Jawab preflight langsung
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
