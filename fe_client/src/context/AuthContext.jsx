@@ -15,7 +15,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const clearSession = useCallback(() => {
-    // ✅ Jangan clear session jika sedang di halaman print
     if (window.location.pathname.startsWith("/print")) return;
     localStorage.removeItem("token");
     setUser(null);
@@ -23,7 +22,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const refreshSession = useCallback(async () => {
-    // ✅ Skip refresh di halaman print
     if (window.location.pathname.startsWith("/print")) {
       setLoading(false);
       return;
@@ -31,7 +29,6 @@ export function AuthProvider({ children }) {
 
     const storedToken = localStorage.getItem("token");
 
-    // ✅ Tidak ada token → belum login, tidak perlu fetch
     if (!storedToken) {
       setUser(null);
       setToken(null);
@@ -39,47 +36,26 @@ export function AuthProvider({ children }) {
       return;
     }
 
+    // ✅ Decode token dulu untuk cek expiry sebelum hit API
     try {
-      const { data } = await api.get("/auth/session");
-      if (data?.user) {
-        setUser(data.user);
-        setToken(storedToken);
-      } else {
-        // ✅ Response tidak valid tapi bukan error jaringan
-        // → token mungkin expired, baru clear session
-        clearSession();
-      }
-    } catch (error) {
-      const status = error?.response?.status;
+      const payload = JSON.parse(atob(storedToken.split(".")[1]));
+      const isExpired = payload.exp * 1000 < Date.now();
 
-      if (status === 401 || status === 403) {
-        // ✅ Token benar-benar invalid/expired → logout
+      if (isExpired) {
         clearSession();
-      } else {
-        // ✅ Error jaringan / server down / timeout
-        // → JANGAN logout, restore user dari token yang tersimpan
-        // decode token manual untuk restore state
-        try {
-          const payload = JSON.parse(atob(storedToken.split(".")[1]));
-          const isExpired = payload.exp * 1000 < Date.now();
-
-          if (isExpired) {
-            // Token sudah expired → logout
-            clearSession();
-          } else {
-            // Token masih valid, restore user dari payload
-            setUser({
-              userId: payload.userId,
-              role: payload.role,
-              email: payload.email,
-            });
-            setToken(storedToken);
-          }
-        } catch {
-          // Token corrupt → logout
-          clearSession();
-        }
+        setLoading(false);
+        return;
       }
+
+      // ✅ Token masih valid, restore user dari payload tanpa hit API
+      setUser({
+        userId: payload.userId,
+        role: payload.role,
+        email: payload.email,
+      });
+      setToken(storedToken);
+    } catch {
+      clearSession();
     } finally {
       setLoading(false);
     }
@@ -115,12 +91,9 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = useCallback(async () => {
-    try {
-      await api.post("/auth/logout").catch(() => {});
-    } finally {
-      clearSession();
-    }
+  // ✅ Hapus api.post("/auth/logout") karena endpoint tidak ada di backend
+  const logout = useCallback(() => {
+    clearSession();
   }, [clearSession]);
 
   const value = { user, token, loading, login, logout, refreshSession };
