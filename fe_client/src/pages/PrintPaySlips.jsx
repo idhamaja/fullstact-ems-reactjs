@@ -4,11 +4,12 @@ import Loading from "../components/Loading";
 import { format } from "date-fns";
 import axios from "axios";
 
-// ✅ Instance axios mandiri — bebas dari interceptor redirect
-const printApi = axios.create({
-  baseURL: (import.meta.env.VITE_BASE_URL || "http://localhost:5000") + "/api",
-  timeout: 10000000,
-});
+// ✅ Ambil base URL dengan fallback yang benar
+const BASE_URL =
+  (import.meta.env.VITE_BASE_URL || "http://localhost:5000").replace(
+    /\/+$/,
+    "",
+  ) + "/api";
 
 const PrintPaySlips = () => {
   const { id } = useParams();
@@ -16,31 +17,43 @@ const PrintPaySlips = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ✅ Capture token synchronously sebelum AuthProvider sempat menghapusnya
   const tokenRef = useRef(localStorage.getItem("token"));
 
   useEffect(() => {
     const token = tokenRef.current;
 
     if (!token) {
-      setError("Session tidak ditemukan. Tutup tab ini dan coba lagi.");
+      setError("Session tidak ditemukan. Tutup tab ini dan login ulang.");
       setLoading(false);
       return;
     }
 
-    printApi
-      .get(`/payslips/${id}`, {
-        // ✅ Inject token langsung, tidak lewat interceptor
+    // ✅ Log untuk debug
+    console.log("Print API URL:", `${BASE_URL}/payslips/${id}`);
+    console.log("Token exists:", !!token);
+
+    axios
+      .get(`${BASE_URL}/payslips/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
+        timeout: 15000,
       })
       .then((res) => {
         const data = res.data?.data ?? res.data?.result ?? res.data;
         setPayslip(data);
       })
       .catch((err) => {
-        setError(
-          err.response?.data?.error || err.message || "Gagal memuat payslip.",
-        );
+        console.error("Print payslip error:", err);
+        const message =
+          err.response?.data?.message ||
+          err.response?.data?.error ||
+          (err.code === "ECONNABORTED"
+            ? "Request timeout, coba lagi."
+            : null) ||
+          (err.message === "Network Error"
+            ? `Network Error — pastikan backend aktif. URL: ${BASE_URL}`
+            : err.message) ||
+          "Gagal memuat payslip.";
+        setError(message);
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -50,7 +63,11 @@ const PrintPaySlips = () => {
   if (error)
     return (
       <div className="max-w-2xl mx-auto p-8 text-center">
-        <p className="text-rose-500 font-medium mb-4">{error}</p>
+        <p className="text-rose-500 font-medium mb-2">{error}</p>
+        {/* ✅ Tampilkan URL yang dipakai untuk debug */}
+        <p className="text-xs text-slate-400 mb-4">
+          Endpoint: {BASE_URL}/payslips/{id}
+        </p>
         <button className="btn-primary" onClick={() => window.close()}>
           Tutup Tab
         </button>
