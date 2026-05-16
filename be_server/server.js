@@ -45,14 +45,17 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// ✅ connectDB di setiap request — wajib untuk Vercel serverless
 app.use(async (req, res, next) => {
   try {
     await connectDB();
     next();
   } catch (error) {
-    console.error("DB Error:", error.message);
-    return res.status(500).json({ error: "Database connection failed" });
+    // Log full error for debugging
+    console.error("DB Connection Error:", error); // <-- full error, not just message
+    return res.status(500).json({
+      error: "Database connection failed",
+      detail: process.env.NODE_ENV !== "production" ? error.message : undefined,
+    });
   }
 });
 
