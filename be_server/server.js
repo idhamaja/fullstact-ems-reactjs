@@ -1,4 +1,3 @@
-// server.js
 import express from "express";
 import cors from "cors";
 import "dotenv/config";
@@ -20,7 +19,18 @@ const app = express();
 
 connectDB();
 
-app.use(cors());
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: false,
+};
+
+app.use(cors(corsOptions));
+
+// ✅ FIX: gunakan named wildcard, bukan bare "*"
+app.options("/{*path}", cors(corsOptions));
+
 app.use(express.json());
 
 app.get("/", (req, res) => {

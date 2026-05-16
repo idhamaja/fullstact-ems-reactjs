@@ -3,11 +3,11 @@ import axios from "axios";
 const BASE =
   (import.meta.env.VITE_BASE_URL || "http://localhost:5000") + "/api";
 
-// Instance utama — dengan redirect interceptor
 const api = axios.create({
   baseURL: BASE,
-  timeout: 10000000,
+  timeout: 15000000, 
   headers: { "Content-Type": "application/json" },
+  withCredentials: false, // ✅ pastikan tidak kirim cookie yang bisa trigger redirect
 });
 
 api.interceptors.request.use(
@@ -22,7 +22,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // ✅ FIX: hanya redirect jika bukan halaman print dan bukan network error
+    if (
+      error.response?.status === 401 &&
+      !window.location.pathname.startsWith("/print")
+    ) {
       localStorage.removeItem("token");
       window.location.href = "/login";
     }
@@ -30,11 +34,11 @@ api.interceptors.response.use(
   },
 );
 
-// ✅ Instance khusus print — TANPA redirect interceptor
 export const printApi = axios.create({
   baseURL: BASE,
-  timeout: 10000000,
+  timeout: 15000000,
   headers: { "Content-Type": "application/json" },
+  withCredentials: false,
 });
 
 printApi.interceptors.request.use(
