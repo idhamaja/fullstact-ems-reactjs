@@ -1,44 +1,48 @@
-import "dotenv/config.js";
-import connectDB from "./config/db.js";
-import User from "./models/User.js";
+import mongoose from "mongoose";
 import bcrypt from "bcrypt";
+import "dotenv/config";
 
-const TemporaryPassword = "admin123";
+const userSchema = new mongoose.Schema(
+  {
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    role: { type: String, enum: ["ADMIN", "EMPLOYEE"], default: "EMPLOYEE" },
+  },
+  { timestamps: true }
+);
 
-async function registerAdmin() {
+const User = mongoose.models.User || mongoose.model("User", userSchema);
+
+const seedAdmin = async () => {
   try {
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log("MongoDB Connected!");
 
-    if (!ADMIN_EMAIL) {
-      console.error("Missing ADMIN_EMAIL env variable");
-      process.exit(1);
-    }
-    await connectDB();
+    // Cek apakah admin sudah ada
+    const existing = await User.findOne({ email: process.env.ADMIN_EMAIL || "admin@example.com" });
 
-    const existingAdmin = await User.findOne({
-      email: process.env.ADMIN_EMAIL,
-    });
-
-    if (existingAdmin) {
-      console.log("User is already exists as role", existingAdmin.role);
+    if (existing) {
+      console.log("Admin already exists:", existing.email);
+      process.exit(0);
     }
 
-    const hashedPassword = await bcrypt.hash(TemporaryPassword, 10);
+    const hashedPassword = await bcrypt.hash("admin123", 10);
 
-    const admin = await User.create({
-      email: process.env.ADMIN_EMAIL,
+    await User.create({
+      email: process.env.ADMIN_EMAIL || "admin@example.com",
       password: hashedPassword,
       role: "ADMIN",
     });
-    console.log("Admin user created");
-    console.log("\nemail:", admin.email);
-    console.log("password:", TemporaryPassword);
-    console.log("\nchange the password after login");
+
+    console.log("✅ Admin created successfully!");
+    console.log("Email   :", process.env.ADMIN_EMAIL || "admin@example.com");
+    console.log("Password: admin123");
 
     process.exit(0);
   } catch (error) {
-    console.log("Seed failed:", error);
+    console.error("❌ Seeder error:", error.message);
+    process.exit(1);
   }
-}
+};
 
-registerAdmin();
+seedAdmin();
