@@ -14,7 +14,7 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid credentials Boss!!" });
     }
 
     if (role_type === "admin" && user.role !== "ADMIN") {
@@ -27,7 +27,7 @@ export const login = async (req, res) => {
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid credentials Boss!!" });
     }
 
     const payLoad = {
