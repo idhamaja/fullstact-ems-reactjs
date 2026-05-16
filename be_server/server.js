@@ -60,6 +60,29 @@ app.get("/", (req, res) => {
   res.status(200).send("Server is running Boss Mantaps!!");
 });
 
+// ✅ DEBUG ONLY - hapus setelah fix
+app.get("/api/debug/check-admin", async (req, res) => {
+  try {
+    const User = (await import("./models/User.js")).default;
+    const user = await User.findOne({ email: "admin@example.com" }).select(
+      "+password",
+    );
+    if (!user)
+      return res.json({ found: false, message: "Admin not found in database" });
+    return res.json({
+      found: true,
+      email: user.email,
+      role: user.role,
+      passwordLength: user.password?.length,
+      passwordStart: user.password?.substring(0, 7),
+      isHashedPassword:
+        user.password?.startsWith("$2b$") || user.password?.startsWith("$2a$"),
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 app.use("/api/auth", authRouter);
 app.use("/api/employees", employeeRouter);
 app.use("/api/profile", profileRouter);
